@@ -5,6 +5,10 @@
 
 **📜 This package is a continuation of Anthony North's original [`rscodeio`](https://github.com/anthonynorth/rscodeio) package, updated and enhanced with RStudio 2025+ support since the original was no longer maintained.**
 
+<p align=center>
+  <img src="./inst/media/rscodeio.png" width="480" height="270">
+</p>
+
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![R-CMD-check](https://github.com/hasanur-rahman079/rscodeiov2/workflows/R-CMD-check/badge.svg)](https://github.com/hasanur-rahman079/rscodeiov2/actions)
 
