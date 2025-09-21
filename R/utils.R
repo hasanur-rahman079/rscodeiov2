@@ -16,31 +16,52 @@ get_stylesheets_location <- function(){
   additional_dirs <- list(
     rstudio_session_port = Sys.getenv("RSTUDIO_SESSION_PORT"),
     rstudio_session_stream = Sys.getenv("RSTUDIO_SESSION_STREAM"),
-    rstudio_desktop_exe = Sys.getenv("RSTUDIO_DESKTOP_EXE")
+    rstudio_desktop_exe = Sys.getenv("RSTUDIO_DESKTOP_EXE"),
+    rstudio_resources = Sys.getenv("RSTUDIO_RESOURCES"),
+    rstudio_which_r = Sys.getenv("RSTUDIO_WHICH_R")
   )
   
   rstudio_dirs <- c(rstudio_dirs, additional_dirs)
+  
+  # Debug: Print environment variables
+  cat("Debug: Checking environment variables...\n")
+  for(name in names(rstudio_dirs)) {
+    value <- rstudio_dirs[[name]]
+    if(value != "") {
+      cat("  ", name, ":", value, "\n")
+    }
+  }
 
   extract_rstudio_path_parts <- function(path){
     if(is.null(path) || path == "") return(NULL)
+    cat("Debug: Extracting path parts from:", path, "\n")
     dir_parts <- fs::path_split(path)[[1]]
     rstudio_ind <- which(dir_parts %in% c("RStudio","rstudio", "Posit", "posit"))
-    if(length(rstudio_ind) != 1) return(NULL)
-
-    dir_parts[seq(rstudio_ind)]
+    if(length(rstudio_ind) != 1) {
+      cat("Debug: No RStudio/Posit directory found in path\n")
+      return(NULL)
+    }
+    
+    result_parts <- dir_parts[seq(rstudio_ind)]
+    cat("Debug: Extracted parts:", paste(result_parts, collapse = "/"), "\n")
+    return(result_parts)
   }
 
   potential_paths <-
     Filter(function(path_parts) {
-           !is.null(path_parts) && dir.exists(fs::path_join(c(path_parts,
-                                              "resources",
-                                              "stylesheets")))
+           if(is.null(path_parts)) return(FALSE)
+           test_path <- fs::path_join(c(path_parts, "resources", "stylesheets"))
+           cat("Debug: Testing path:", test_path, "\n")
+           exists <- dir.exists(test_path)
+           cat("Debug: Path exists:", exists, "\n")
+           return(exists)
           },
           lapply(rstudio_dirs, extract_rstudio_path_parts)
     )
   
   # If no paths found via environment variables, try common installation locations
   if(length(potential_paths) == 0) {
+    cat("Debug: No paths found via environment variables, trying common locations...\n")
     
     common_paths <- character(0)
     
@@ -51,7 +72,11 @@ get_stylesheets_location <- function(){
         file.path(Sys.getenv("LOCALAPPDATA"), "Programs", "RStudio"),
         file.path(Sys.getenv("PROGRAMFILES"), "Posit", "RStudio"),
         file.path(Sys.getenv("PROGRAMFILES(X86)"), "Posit", "RStudio"),
-        file.path(Sys.getenv("LOCALAPPDATA"), "Programs", "Posit", "RStudio")
+        file.path(Sys.getenv("LOCALAPPDATA"), "Programs", "Posit", "RStudio"),
+        # Additional potential paths for RStudio 2025
+        file.path(Sys.getenv("PROGRAMFILES"), "RStudio-2025.05.0"),
+        file.path(Sys.getenv("PROGRAMFILES(X86)"), "RStudio-2025.05.0"),
+        file.path(Sys.getenv("LOCALAPPDATA"), "Programs", "RStudio-2025.05.0")
       )
     } else {
       # Linux paths
@@ -64,10 +89,40 @@ get_stylesheets_location <- function(){
       )
     }
     
+    cat("Debug: Checking common installation paths...\n")
     for(path in common_paths) {
-      stylesheet_path <- file.path(path, "resources", "stylesheets")
-      if(dir.exists(stylesheet_path)) {
-        return(stylesheet_path)
+      cat("Debug: Checking:", path, "\n")
+      if(dir.exists(path)) {
+        cat("Debug: Directory exists, checking for stylesheets...\n")
+        stylesheet_path <- file.path(path, "resources", "stylesheets")
+        cat("Debug: Testing stylesheet path:", stylesheet_path, "\n")
+        if(dir.exists(stylesheet_path)) {
+          cat("Debug: Found stylesheets at:", stylesheet_path, "\n")
+          return(stylesheet_path)
+        }
+      }
+    }
+    
+    # Try to find RStudio executable and derive path from it
+    cat("Debug: Trying to find RStudio executable...\n")
+    if(Sys.info()["sysname"] == "Windows") {
+      # Check registry or common executable locations
+      possible_exes <- c(
+        file.path(Sys.getenv("PROGRAMFILES"), "RStudio", "rstudio.exe"),
+        file.path(Sys.getenv("PROGRAMFILES(X86)"), "RStudio", "rstudio.exe"),
+        file.path(Sys.getenv("LOCALAPPDATA"), "Programs", "RStudio", "rstudio.exe")
+      )
+      
+      for(exe_path in possible_exes) {
+        if(file.exists(exe_path)) {
+          exe_dir <- dirname(exe_path)
+          stylesheet_path <- file.path(exe_dir, "resources", "stylesheets")
+          cat("Debug: Found exe, testing:", stylesheet_path, "\n")
+          if(dir.exists(stylesheet_path)) {
+            cat("Debug: Found stylesheets via executable path:", stylesheet_path, "\n")
+            return(stylesheet_path)
+          }
+        }
       }
     }
   }
@@ -77,7 +132,9 @@ get_stylesheets_location <- function(){
   }
 
   ## return first path that existed
-  fs::path_join(c(potential_paths[[1]], "resources", "stylesheets"))
+  result_path <- fs::path_join(c(potential_paths[[1]], "resources", "stylesheets"))
+  cat("Debug: Final result path:", result_path, "\n")
+  return(result_path)
 
 }
 
@@ -106,6 +163,46 @@ is_rstudio_server <- function() {
 }
 
 rscodeiov2_installed <- function() {
+  themes <- rstudioapi::getThemes()
+  theme_names <- names(themes)
+  
+  # Check for any theme name containing "rscodeio"
+  any(grepl("rscodeio", theme_names, ignore.case = TRUE))
+}
+
+#' Test RStudio path detection
+#'
+#' @return Invisible TRUE if successful
+#' @export
+test_rstudio_path <- function() {
+  cat("Testing RStudio path detection...\n\n")
+  
+  tryCatch({
+    path <- get_stylesheets_location()
+    cat("\nSUCCESS: Found RStudio stylesheets at:", path, "\n")
+    
+    # Test if we can read the files
+    gnome_file <- file.path(path, "rstudio-gnome-dark.qss")
+    windows_file <- file.path(path, "rstudio-windows-dark.qss")
+    
+    cat("\nFile check:\n")
+    cat("  Gnome QSS exists:", file.exists(gnome_file), "\n")
+    cat("  Windows QSS exists:", file.exists(windows_file), "\n")
+    
+    if(file.exists(gnome_file) || file.exists(windows_file)) {
+      cat("\nPath detection successful!\n")
+      return(invisible(TRUE))
+    } else {
+      cat("\nWARNING: Stylesheets directory found but no QSS files present.\n")
+      return(invisible(FALSE))
+    }
+    
+  }, error = function(e) {
+    cat("\nERROR:", e$message, "\n\n")
+    cat("Please try running: rscodeio_diagnose() for more information\n")
+    return(invisible(FALSE))
+  })
+}
   themes <- rstudioapi::getThemes()
   theme_names <- names(themes)
   
