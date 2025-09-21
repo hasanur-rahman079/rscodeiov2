@@ -1,14 +1,24 @@
 Package: rscodeiov2
-Title: A VSCode skin for RStudio
-Version: 0.2.0
-Authors@R: c(person("Anthony", "North", email = "anthony.jl.north@gmail.com", role = c("aut", "cre")),
+Title: A Visual Studio Code Inspired Theme for RStudio with RStudio 2025+ Support
+Version: 2.0.0
+Authors@R: c(person("Md. Hasanur", "Rahman", email = "hasanurrahman.bge@gmail.com", role = c("aut", "cre")),
+             person("Anthony", "North", email = "anthony.jl.north@gmail.com", role = "aut", comment = "Original rscodeio package author"),
              person("Miles", "McBain", email = "miles.mcbain@gmail.com", role = "ctb"))
-Description: Provides a Visual Studio Code inspired theme for RStudio IDE, including custom styling for menus and UI elements not covered by standard theming APIs.
+Description: Provides a Visual Studio Code inspired theme for RStudio IDE with 
+    revolutionary support for RStudio 2025's new web-based architecture. Features 
+    automatic version detection and dual theming approach: CSS-based theming for 
+    modern RStudio 2025+ and QSS-based theming for legacy versions. Includes custom 
+    menu styling and enhanced editor themes with VS Code-inspired color schemes.
 Depends: R (>= 4.0.0)
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Imports: 
     fs (>= 1.5.0),
-    rstudioapi (>= 0.13)
+    rstudioapi (>= 0.13),
+    utils
+SystemRequirements: RStudio (>= 1.2.0)
+URL: https://github.com/hasanur-rahman079/rscodeiov2
+BugReports: https://github.com/hasanur-rahman079/rscodeiov2/issues
+Lifecycle: experimental
 RoxygenNote: 7.3.0
