@@ -2,6 +2,19 @@ get_stylesheets_location <- function(){
 
   ## We shouldn't get here on mac
   if(host_os_is_mac()) stop("Qss Stylesheets are not used on Mac")
+  
+  # Check if user has manually set the path
+  manual_path <- Sys.getenv("RSTUDIO_MANUAL_PATH", unset = "")
+  if(manual_path != "") {
+    cat("Debug: Using manually set RStudio path:", manual_path, "\n")
+    stylesheet_path <- file.path(manual_path, "resources", "stylesheets")
+    if(dir.exists(stylesheet_path)) {
+      cat("Debug: Manual path stylesheets found at:", stylesheet_path, "\n")
+      return(stylesheet_path)
+    } else {
+      cat("Debug: Manual path set but stylesheets not found, falling back to auto-detection\n")
+    }
+  }
 
   # Try multiple methods to find RStudio installation
   rstudio_dirs <- list(
@@ -76,7 +89,19 @@ get_stylesheets_location <- function(){
         # Additional potential paths for RStudio 2025
         file.path(Sys.getenv("PROGRAMFILES"), "RStudio-2025.05.0"),
         file.path(Sys.getenv("PROGRAMFILES(X86)"), "RStudio-2025.05.0"),
-        file.path(Sys.getenv("LOCALAPPDATA"), "Programs", "RStudio-2025.05.0")
+        file.path(Sys.getenv("LOCALAPPDATA"), "Programs", "RStudio-2025.05.0"),
+        # Try version-specific directories
+        file.path(Sys.getenv("PROGRAMFILES"), "RStudio", "2025.05.0"),
+        file.path(Sys.getenv("PROGRAMFILES(X86)"), "RStudio", "2025.05.0"),
+        # Try newer Posit-branded paths
+        file.path(Sys.getenv("PROGRAMFILES"), "Posit", "RStudio", "2025.05.0"),
+        file.path(Sys.getenv("PROGRAMFILES(X86)"), "Posit", "RStudio", "2025.05.0"),
+        # User-specific installations
+        file.path(Sys.getenv("USERPROFILE"), "AppData", "Local", "Programs", "RStudio"),
+        file.path(Sys.getenv("USERPROFILE"), "AppData", "Local", "Programs", "Posit", "RStudio"),
+        # Chocolatey or Scoop installations
+        file.path(Sys.getenv("PROGRAMDATA"), "chocolatey", "lib", "rstudio", "tools"),
+        file.path(Sys.getenv("USERPROFILE"), "scoop", "apps", "rstudio", "current")
       )
     } else {
       # Linux paths
@@ -106,11 +131,39 @@ get_stylesheets_location <- function(){
     # Try to find RStudio executable and derive path from it
     cat("Debug: Trying to find RStudio executable...\n")
     if(Sys.info()["sysname"] == "Windows") {
-      # Check registry or common executable locations
+      # Try to use Windows Registry to find RStudio
+      tryCatch({
+        cat("Debug: Checking Windows registry...\n")
+        # Try to find RStudio installation path from registry
+        reg_cmd <- 'reg query "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall" /s /f "RStudio" 2>nul | findstr "InstallLocation"'
+        reg_result <- suppressWarnings(system(reg_cmd, intern = TRUE, ignore.stderr = TRUE))
+        
+        if(length(reg_result) > 0) {
+          for(line in reg_result) {
+            if(grepl("InstallLocation", line)) {
+              # Extract path from registry line
+              install_path <- gsub(".*InstallLocation\\s+REG_SZ\\s+", "", line)
+              install_path <- trimws(install_path)
+              cat("Debug: Found registry install path:", install_path, "\n")
+              stylesheet_path <- file.path(install_path, "resources", "stylesheets")
+              if(dir.exists(stylesheet_path)) {
+                cat("Debug: Found stylesheets via registry:", stylesheet_path, "\n")
+                return(stylesheet_path)
+              }
+            }
+          }
+        }
+      }, error = function(e) {
+        cat("Debug: Registry check failed:", e$message, "\n")
+      })
+      
+      # Check common executable locations
       possible_exes <- c(
         file.path(Sys.getenv("PROGRAMFILES"), "RStudio", "rstudio.exe"),
         file.path(Sys.getenv("PROGRAMFILES(X86)"), "RStudio", "rstudio.exe"),
-        file.path(Sys.getenv("LOCALAPPDATA"), "Programs", "RStudio", "rstudio.exe")
+        file.path(Sys.getenv("LOCALAPPDATA"), "Programs", "RStudio", "rstudio.exe"),
+        file.path(Sys.getenv("PROGRAMFILES"), "Posit", "RStudio", "rstudio.exe"),
+        file.path(Sys.getenv("PROGRAMFILES(X86)"), "Posit", "RStudio", "rstudio.exe")
       )
       
       for(exe_path in possible_exes) {
@@ -202,6 +255,47 @@ test_rstudio_path <- function() {
     cat("Please try running: rscodeio_diagnose() for more information\n")
     return(invisible(FALSE))
   })
+}
+
+#' Manually set RStudio installation path
+#'
+#' @param rstudio_path Path to RStudio installation directory
+#' @return Invisible TRUE if successful
+#' @export
+set_rstudio_path <- function(rstudio_path) {
+  
+  if(!dir.exists(rstudio_path)) {
+    stop("Directory does not exist: ", rstudio_path)
+  }
+  
+  stylesheet_path <- file.path(rstudio_path, "resources", "stylesheets")
+  
+  if(!dir.exists(stylesheet_path)) {
+    stop("Stylesheets directory not found at: ", stylesheet_path)
+  }
+  
+  # Set environment variable for future use
+  Sys.setenv(RSTUDIO_MANUAL_PATH = rstudio_path)
+  
+  cat("RStudio path manually set to:", rstudio_path, "\n")
+  cat("Stylesheets found at:", stylesheet_path, "\n")
+  
+  # Test the files
+  gnome_file <- file.path(stylesheet_path, "rstudio-gnome-dark.qss")
+  windows_file <- file.path(stylesheet_path, "rstudio-windows-dark.qss")
+  
+  cat("\nQSS Files:\n")
+  cat("  Gnome QSS:", file.exists(gnome_file), "\n")
+  cat("  Windows QSS:", file.exists(windows_file), "\n")
+  
+  if(file.exists(gnome_file) || file.exists(windows_file)) {
+    cat("\n✅ RStudio path successfully configured!\n")
+    cat("You can now run: rscodeiov2::install_theme()\n")
+    return(invisible(TRUE))
+  } else {
+    warning("Stylesheets directory found but no QSS files present.")
+    return(invisible(FALSE))
+  }
 }
 
 rscodeiov2_installed <- function() {
