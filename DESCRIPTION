@@ -1,15 +1,14 @@
-Package: rscodeio
+Package: rscodeiov2
 Title: A VSCode skin for RStudio
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: c(person("Anthony", "North", email = "anthony.jl.north@gmail.com", role = c("aut", "cre")),
              person("Miles", "McBain", email = "miles.mcbain@gmail.com", role = "ctb"))
-Description: It really just modifies RStudio presentation.
-Depends: R (>= 3.3.0)
+Description: Provides a Visual Studio Code inspired theme for RStudio IDE, including custom styling for menus and UI elements not covered by standard theming APIs.
+Depends: R (>= 4.0.0)
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Imports: 
-    fs,
-    purrr,
-    rstudioapi
-RoxygenNote: 7.1.1
+    fs (>= 1.5.0),
+    rstudioapi (>= 0.13)
+RoxygenNote: 7.3.0
