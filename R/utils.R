@@ -203,6 +203,8 @@ test_rstudio_path <- function() {
     return(invisible(FALSE))
   })
 }
+
+rscodeiov2_installed <- function() {
   themes <- rstudioapi::getThemes()
   theme_names <- names(themes)
   
